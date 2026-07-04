@@ -4,11 +4,11 @@ use std::{
 };
 
 use bevy::{
-    image::ktx2_buffer_to_image,
-    log::tracing::instrument::WithSubscriber,
+    log::tracing_subscriber::fmt::format,
     prelude::*,
     render::{
         Render, RenderApp,
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_resource::{
             BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode, Origin3d,
             PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo,
@@ -22,16 +22,16 @@ pub struct TapePlugin;
 
 impl Plugin for TapePlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(ExtractComponentPlugin::<RecordScreen>::default());
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(Render, record);
         }
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Debug, ExtractComponent)]
 pub struct RecordScreen {
-    render_quality: RenderQuality,
-    output_name: String,
+    pub output_name: String,
 }
 
 #[derive(Resource)]
@@ -39,16 +39,10 @@ struct FFmpegChild {
     pub child: Child,
 }
 
-enum RenderQuality {
-    Dev,
-    Final,
-}
-
 impl Default for RecordScreen {
     fn default() -> Self {
         Self {
-            render_quality: RenderQuality::Dev,
-            output_name: String::from("output.mp4"),
+            output_name: String::from("output"),
         }
     }
 }
@@ -57,7 +51,7 @@ fn record(
     render_device: Res<RenderDevice>,
     views: Query<&ViewTarget>,
     render_queue: Res<RenderQueue>,
-    record_screen: Query<(), With<RecordScreen>>,
+    record_screen: Query<&RecordScreen>,
     child: Option<ResMut<FFmpegChild>>,
     commands: Commands,
 ) {
@@ -119,7 +113,10 @@ fn record(
     let data = slice.get_mapped_range();
 
     if child.is_none() {
-        spawn_ffmpeg(w, h, commands);
+        if let Ok(record) = record_screen.single() {
+            println!("something");
+            spawn_ffmpeg(w, h, commands, &record.output_name);
+        }
     }
 
     if let Some(mut ffmpeg) = child {
@@ -138,26 +135,13 @@ fn record(
     buffer.unmap();
 }
 
-fn spawn_ffmpeg(width: u32, height: u32, mut commands: Commands) {
+fn spawn_ffmpeg(width: u32, height: u32, mut commands: Commands, output_name: &str) {
     let res = format!("{}x{}", width, height);
+    let file_name = format!("{}.mp4", output_name);
     let child = process::Command::new("ffmpeg")
         .args([
-            "-y",
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-            "rgba",
-            "-s",
-            &res,
-            "-r",
-            "60",
-            "-i",
-            "-",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "output.mp4",
+            "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", &res, "-r", "60", "-i", "-", "-c:v",
+            "libx264", "-pix_fmt", "yuv420p", &file_name,
         ])
         .stdin(Stdio::piped())
         .spawn()
