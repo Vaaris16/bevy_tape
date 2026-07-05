@@ -81,7 +81,14 @@ pub fn record(
     if child.is_none() {
         if let Ok(record) = record_screen.single() {
             println!("something");
-            spawn_ffmpeg(w, h, commands, record.fps, &record.output_name);
+            spawn_ffmpeg(
+                w,
+                h,
+                commands,
+                record.fps,
+                &record.output_name,
+                record.file_type,
+            );
         }
     }
 

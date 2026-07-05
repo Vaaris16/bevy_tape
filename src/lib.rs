@@ -1,3 +1,4 @@
+use core::fmt;
 use std::process::Child;
 
 use bevy::{
@@ -23,10 +24,40 @@ impl Plugin for TapePlugin {
     }
 }
 
+#[derive(Clone, Debug, Copy)]
+pub enum FileType {
+    MP4,
+    MOV,
+    MKV,
+    WEBM,
+    AVI,
+    MPEG,
+    FLV,
+    MTS,
+}
+
+impl fmt::Display for FileType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ext = match self {
+            FileType::MP4 => ".mp4",
+            FileType::MOV => ".mov",
+            FileType::MKV => ".mkv",
+            FileType::WEBM => ".webm",
+            FileType::AVI => ".avi",
+            FileType::MPEG => ".mpeg",
+            FileType::FLV => ".flv",
+            FileType::MTS => ".mts",
+        };
+
+        f.write_str(ext)
+    }
+}
+
 #[derive(Component, Clone, Debug, ExtractComponent)]
 pub struct RecordScreen {
     pub output_name: String,
     pub fps: u32,
+    pub file_type: FileType,
 }
 
 #[derive(Resource)]
@@ -39,6 +70,7 @@ impl Default for RecordScreen {
         Self {
             output_name: String::from("output"),
             fps: 60,
+            file_type: FileType::MP4,
         }
     }
 }
