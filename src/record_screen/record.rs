@@ -1,6 +1,9 @@
 use std::io::Write;
 
-use crate::{FFmpegChild, RecordScreen, spawn_ffmpeg_command::spawn_ffmpeg::spawn_ffmpeg};
+use crate::{
+    RecordScreen,
+    spawn_ffmpeg_command::spawn_ffmpeg::{FFmpegChild, spawn_ffmpeg},
+};
 use bevy::{
     prelude::*,
     render::{
@@ -12,6 +15,8 @@ use bevy::{
         view::ViewTarget,
     },
 };
+
+use wgpu::PollError;
 
 pub fn record(
     render_device: Res<RenderDevice>,
@@ -74,7 +79,9 @@ pub fn record(
 
     slice.map_async(MapMode::Read, |_| {});
 
-    render_device.poll(PollType::wait_indefinitely());
+    if let Err(err) = render_device.poll(PollType::wait_indefinitely()) {
+        println!("GPU poll error: {}", err);
+    }
 
     let data = slice.get_mapped_range();
 
@@ -88,6 +95,8 @@ pub fn record(
                 record.fps,
                 &record.output_name,
                 record.file_type,
+                record.pixel_format,
+                record.codec,
             );
         }
     }
