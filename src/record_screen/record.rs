@@ -1,3 +1,12 @@
+//! The [record] function runs as a system in the render world.
+//!
+//! It queries [RecordScreen] to extract recording parameters and forwards
+//! them to [spawn_ffmpeg], which is responsible for spawning and managing
+//! the FFmpeg process.
+//!
+//! The function allocates a GPU-backed readback buffer, copies the rendered
+//! texture into system memory, extracts RGBA pixel data, and streams each
+//! frame into FFmpeg for encoding.
 use std::io::Write;
 
 use crate::{
@@ -10,13 +19,12 @@ use bevy::{
         render_resource::{
             BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode, Origin3d,
             PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo,
+            TextureAspect,
         },
         renderer::{RenderDevice, RenderQueue},
         view::ViewTarget,
     },
 };
-
-use wgpu::PollError;
 
 pub fn record(
     render_device: Res<RenderDevice>,
@@ -26,37 +34,40 @@ pub fn record(
     child: Option<ResMut<FFmpegChild>>,
     commands: Commands,
 ) {
+    // Retrieve the active view and its main render texture
     let view = match views.single() {
         Ok(v) => v,
         Err(_) => return,
     };
-
     let texture = view.main_texture();
     let size = texture.size();
 
     let w = size.width;
     let h = size.height;
 
-    let bytes_per_row = (w * 4 + 256 - 1) & !(256 - 1);
-    let buffer_size = ((w * h) * 4) as u64;
+    // GPU readback requires row alignment to 256 bytes
+    let bytes_per_row = ((w * 4) + 256 - 1) & !(256 - 1);
+    let buffer_size = (w * h) * 4;
 
+    // Create a GPU buffer for texture readback
     let buffer = render_device.create_buffer(&BufferDescriptor {
-        label: Some("buffer"),
-        size: buffer_size,
+        label: Some("record_readback_buffer"),
+        size: buffer_size as u64,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
+    // Encode a copy from the render texture into the readback buffer
     let mut encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
-        label: Some("encoder"),
+        label: Some("record_encoder"),
     });
 
     encoder.copy_texture_to_buffer(
         TexelCopyTextureInfo {
-            texture: texture,
+            texture,
             mip_level: 0,
             origin: Origin3d::ZERO,
-            aspect: bevy::render::render_resource::TextureAspect::All,
+            aspect: TextureAspect::All,
         },
         TexelCopyBufferInfo {
             buffer: &buffer,
@@ -73,21 +84,22 @@ pub fn record(
         },
     );
 
+    // Submit GPU work
     render_queue.submit(Some(encoder.finish()));
 
+    // Map the buffer and block until the GPU copy completes
     let slice = buffer.slice(..);
-
     slice.map_async(MapMode::Read, |_| {});
 
-    if let Err(err) = render_device.poll(PollType::wait_indefinitely()) {
-        println!("GPU poll error: {}", err);
+    if let Err(e) = render_device.poll(PollType::wait_indefinitely()) {
+        eprintln!("Poll Error: {e}");
     }
 
     let data = slice.get_mapped_range();
 
+    // Spawn FFmpeg on the first captured frame
     if child.is_none() {
         if let Ok(record) = record_screen.single() {
-            println!("something");
             spawn_ffmpeg(
                 w,
                 h,
@@ -101,18 +113,21 @@ pub fn record(
         }
     }
 
+    // Stream frame data to FFmpeg, skipping padded bytes per row
     if let Some(mut ffmpeg) = child {
         if let Some(stdin) = ffmpeg.child.stdin.as_mut() {
-            for row in 0..size.height as usize {
+            for row in 0..h as usize {
                 let s = row * bytes_per_row as usize;
+                let e = s + (w * 4) as usize;
 
-                let e = s + (size.width * 4) as usize;
-
-                stdin.write_all(&data[s..e]).unwrap();
+                stdin
+                    .write_all(&data[s..e])
+                    .expect("failed to write buffer");
             }
         }
     }
 
+    // Release the mapped buffer
     drop(data);
     buffer.unmap();
 }

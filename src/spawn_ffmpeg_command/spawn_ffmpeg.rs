@@ -1,12 +1,17 @@
-use crate::{Codec, FileType, PixelFormat};
+use crate::{Codec, FileType, PixelFormat, record_screen::record::record};
 use bevy::prelude::*;
 use std::process::{self, Child, Stdio};
 
+/// Holds the running FFmpeg process used for screen recording.
 #[derive(Resource)]
 pub struct FFmpegChild {
     pub child: Child,
 }
 
+/// Spawns an FFmpeg process configured to receive raw RGBA frames via stdin
+/// and encode them into a video file.
+///
+/// This function is invoked by [`record`] to encode streamed RGBA frame data.
 pub fn spawn_ffmpeg(
     width: u32,
     height: u32,
@@ -17,34 +22,45 @@ pub fn spawn_ffmpeg(
     pixel_format: PixelFormat,
     codec_type: Codec,
 ) {
+    // Resolution string in WIDTHxHEIGHT format required by FFmpeg
     let res = format!("{}x{}", width, height);
+
+    // Final output filename including extension
     let file_name = format!("{}{}", output_name, file_ext);
+
+    // Output pixel format (used by the encoder)
     let px_format = format!("{}", pixel_format);
+
+    // Video codec identifier understood by FFmpeg
     let codec = format!("{}", codec_type);
+
+    // Spawn FFmpeg process configured to read raw RGBA frames from stdin
     let child = process::Command::new("ffmpeg")
         .args([
-            "-y",
+            "-y", // Overwrite output file if it exists
             "-f",
-            "rawvideo",
+            "rawvideo", // Input format: raw video frames
             "-pix_fmt",
-            "rgba",
+            "rgba", // Input pixel format (from GPU)
             "-s",
-            &res,
+            &res, // Frame resolution
             "-r",
-            &fps.to_string(),
+            &fps.to_string(), // Input frame rate
             "-i",
-            "-",
+            "-", // Read input from stdin
             "-c:v",
-            &codec,
+            &codec, // Video codec
             "-pix_fmt",
-            &px_format,
-            &file_name,
+            &px_format, // Output pixel format
+            &file_name, // Output file
         ])
-        .stdin(Stdio::piped())
+        .stdin(Stdio::piped()) // Enable writing frame data to stdin
         .spawn()
         .unwrap_or_else(|err| {
-            eprintln!("failed spawning ffmpeg: {}", err);
+            eprintln!("failed to spawn ffmpeg: {}", err);
             std::process::exit(1);
         });
-    commands.insert_resource(FFmpegChild { child: child });
+
+    // Store FFmpeg process as a Bevy resource for later frame submission
+    commands.insert_resource(FFmpegChild { child });
 }
