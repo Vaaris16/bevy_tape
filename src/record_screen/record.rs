@@ -98,32 +98,23 @@ pub fn record(
     let data = slice.get_mapped_range();
 
     // Spawn FFmpeg on the first captured frame
-    if child.is_none() {
-        if let Ok(record) = record_screen.single() {
-            spawn_ffmpeg(
-                w,
-                h,
-                commands,
-                record.fps,
-                &record.output_name,
-                record.file_type,
-                record.pixel_format,
-                record.codec,
-            );
-        }
+    if child.is_none()
+        && let Ok(record) = record_screen.single()
+    {
+        spawn_ffmpeg(w, h, commands, record);
     }
 
     // Stream frame data to FFmpeg, skipping padded bytes per row
-    if let Some(mut ffmpeg) = child {
-        if let Some(stdin) = ffmpeg.child.stdin.as_mut() {
-            for row in 0..h as usize {
-                let s = row * bytes_per_row as usize;
-                let e = s + (w * 4) as usize;
+    if let Some(mut ffmpeg) = child
+        && let Some(stdin) = ffmpeg.child.stdin.as_mut()
+    {
+        for row in 0..h as usize {
+            let s = row * bytes_per_row as usize;
+            let e = s + (w * 4) as usize;
 
-                stdin
-                    .write_all(&data[s..e])
-                    .expect("failed to write buffer");
-            }
+            stdin
+                .write_all(&data[s..e])
+                .expect("failed to write buffer");
         }
     }
 

@@ -3,7 +3,7 @@ use core::fmt;
 /// Video codecs affect file size, visual quality, and compatibility
 /// across devices and platforms.
 ///
-/// The [`Codec`] enum enumerates all video codecs supported by bevy_tape.
+/// The [`Codec`] enum defines all video codecs supported by bevy_tape.
 
 #[derive(Clone, Debug, Copy)]
 pub enum Codec {

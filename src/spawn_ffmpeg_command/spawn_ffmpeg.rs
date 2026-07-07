@@ -1,4 +1,4 @@
-use crate::{Codec, FileType, PixelFormat, record_screen::record::record};
+use crate::record_component::record::RecordScreen;
 use bevy::prelude::*;
 use std::process::{self, Child, Stdio};
 
@@ -11,28 +11,19 @@ pub struct FFmpegChild {
 /// Spawns an FFmpeg process configured to receive raw RGBA frames via stdin
 /// and encode them into a video file.
 ///
-/// This function is invoked by [`record`] to encode streamed RGBA frame data.
-pub fn spawn_ffmpeg(
-    width: u32,
-    height: u32,
-    mut commands: Commands,
-    fps: u32,
-    output_name: &str,
-    file_ext: FileType,
-    pixel_format: PixelFormat,
-    codec_type: Codec,
-) {
+/// This function is invoked by [record](crate::record_screen::record::record) to encode streamed RGBA frame data.
+pub fn spawn_ffmpeg(width: u32, height: u32, mut commands: Commands, record: &RecordScreen) {
     // Resolution string in WIDTHxHEIGHT format required by FFmpeg
     let res = format!("{}x{}", width, height);
 
     // Final output filename including extension
-    let file_name = format!("{}{}", output_name, file_ext);
+    let file_name = format!("{}{}", record.output_name, record.file_type);
 
     // Output pixel format (used by the encoder)
-    let px_format = format!("{}", pixel_format);
+    let px_format = format!("{}", record.pixel_format);
 
     // Video codec identifier understood by FFmpeg
-    let codec = format!("{}", codec_type);
+    let codec = format!("{}", record.codec);
 
     // Spawn FFmpeg process configured to read raw RGBA frames from stdin
     let child = process::Command::new("ffmpeg")
@@ -45,7 +36,7 @@ pub fn spawn_ffmpeg(
             "-s",
             &res, // Frame resolution
             "-r",
-            &fps.to_string(), // Input frame rate
+            &record.fps.to_string(), // Input frame rate
             "-i",
             "-", // Read input from stdin
             "-c:v",

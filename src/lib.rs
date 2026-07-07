@@ -7,12 +7,15 @@
 //! encode the video output.
 //!
 //! The output can be configured through:
-//! - Custom file extensions via [`FileType`]
-//! - Multiple video codecs via [`Codec`]
-//! - Explicit pixel format control via [`PixelFormat`]
+//! - Custom file extensions via [FileType](crate::record_component::file_type::FileType)
+//! - Multiple video codecs via [Codec](crate::record_component::codec::Codec)
+//! - Explicit pixel format control via [PixelFormat](crate::record_component::px_format::PixelFormat)
 //!
 //! This makes bevy_tape an ideal crate for screen recording with minimal FPS loss
 //! in the viewport.
+//!
+//! # Note
+//! bevy_tape does not support HDR yet.
 //!
 //! # Example
 //!
@@ -24,11 +27,22 @@
 //!
 //! ```rust
 //! use bevy::prelude::*;
-//! use bevy_tape::TapePlugin;
+//! use bevy_tape::{
+//!     TapePlugin,
+//!     record_component::{
+//!         codec::Codec, file_type::FileType, px_format::PixelFormat, record::RecordScreen,
+//!     },
+//! };
 //!
 //! fn main() {
 //!     App::new()
-//!         .add_plugins(DefaultPlugins)
+//!         .add_plugins(DefaultPlugins.set(WindowPlugin {
+//!             primary_window: Some(Window {
+//!                 resizable: false,
+//!                 ..Default::default()
+//!             }),
+//!             ..Default::default()
+//!         }))
 //!         .add_plugins(TapePlugin)
 //!         .add_systems(Startup, setup)
 //!         .run();
@@ -48,7 +62,7 @@
 //!     commands.spawn((
 //!         Mesh3d(meshes.add(Cuboid::default())),
 //!         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-//!         Transform::from_xyz(0.0, 10.0, 0.0),
+//!         Transform::from_xyz(0.0, 0.5, 0.0),
 //!     ));
 //!
 //!     // Light
@@ -65,18 +79,22 @@
 //!         Camera3d::default(),
 //!         // Add the RecordScreen component
 //!         RecordScreen {
-//!             output_name: String::from("custom_name"),
-//!             fps: 300,
-//!             file_type: FileType::MOV,
-//!             pixel_format: PixelFormat::Rgba,
-//!             codec: Codec::ProRes,
+//!             // name of the output file without the file extension
+//!             output_name: String::from("custom_filename"),
+//!             // fps of the video
+//!             fps: 60,
+//!             // define the file type for the video
+//!             file_type: FileType::MP4,
+//!             // define pixel format for the video
+//!             pixel_format: PixelFormat::Yuv420p,
+//!             // defines the codec used for the video
+//!             codec: Codec::H265,
 //!         },
-//!         Transform::from_xyz(-2.0, 2.5, 10.0)
-//!             .looking_at(Vec3::ZERO, Vec3::Y),
+//!         Transform::from_xyz(-2.0, 2.5, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
 //!     ));
 //! }
 //! ```
-
+//!
 use bevy::{
     prelude::*,
     render::{Render, RenderApp, extract_component::ExtractComponentPlugin},
@@ -88,12 +106,9 @@ pub mod spawn_ffmpeg_command;
 
 use record_screen::record::record;
 
-use crate::record_component::{
-    codec::Codec, file_type::FileType, px_format::PixelFormat, record_component::RecordScreen,
-};
+use crate::record_component::record::RecordScreen;
 
-/// The [TapePlugin] adds the systems needed to the render world.
-
+/// The [TapePlugin] registers frame extraction on the main app and adds recording systems to the render world.
 pub struct TapePlugin;
 
 impl Plugin for TapePlugin {
