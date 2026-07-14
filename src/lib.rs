@@ -22,7 +22,7 @@
 //! ## Dependencies
 //! ```toml
 //! bevy = "0.19"
-//! bevy_tape = "0.1.0"
+//! bevy_tape = "0.1.1"
 //! ```
 //!
 //! ```rust
@@ -81,14 +81,24 @@
 //!         RecordScreen {
 //!             // name of the output file without the file extension
 //!             output_name: String::from("custom_filename"),
+//!
 //!             // fps of the video
 //!             fps: 60,
+//!
 //!             // define the file type for the video
 //!             file_type: FileType::MP4,
+//!
 //!             // define pixel format for the video
 //!             pixel_format: PixelFormat::Yuv420p,
+//!
 //!             // defines the codec used for the video
 //!             codec: Codec::H265,
+//!
+//!             // sets the maximum video duration in seconds
+//!             max_secs: Some(10),
+//!
+//!             // delays the start of recording by the specified number of seconds.
+//!             min_secs: 5,
 //!         },
 //!         Transform::from_xyz(-2.0, 2.5, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
 //!     ));

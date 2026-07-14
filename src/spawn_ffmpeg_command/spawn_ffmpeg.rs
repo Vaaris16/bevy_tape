@@ -44,6 +44,7 @@ pub fn spawn_ffmpeg(width: u32, height: u32, mut commands: Commands, record: &Re
             "-pix_fmt",
             &px_format, // Output pixel format
             &file_name, // Output file
+                        //
         ])
         .stdin(Stdio::piped()) // Enable writing frame data to stdin
         .spawn()

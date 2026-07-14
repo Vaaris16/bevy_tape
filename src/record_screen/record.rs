@@ -33,7 +33,27 @@ pub fn record(
     record_screen: Query<&RecordScreen>,
     child: Option<ResMut<FFmpegChild>>,
     commands: Commands,
+    mut frame: Local<i32>,
 ) {
+    let record = match record_screen.single() {
+        Ok(record) => record,
+        Err(_) => return,
+    };
+
+    let min_frame = record.min_secs as u32 * record.fps;
+
+    if *frame < min_frame as i32 {
+        *frame += 1;
+        return;
+    }
+
+    if let Some(mx) = record.max_secs {
+        let max_frame = mx as u32 * record.fps;
+        if *frame as u32 >= max_frame {
+            return;
+        }
+    }
+
     // Retrieve the active view and its main render texture
     let view = match views.single() {
         Ok(v) => v,
@@ -98,9 +118,7 @@ pub fn record(
     let data = slice.get_mapped_range();
 
     // Spawn FFmpeg on the first captured frame
-    if child.is_none()
-        && let Ok(record) = record_screen.single()
-    {
+    if child.is_none() {
         spawn_ffmpeg(w, h, commands, record);
     }
 
@@ -117,6 +135,8 @@ pub fn record(
                 .expect("failed to write buffer");
         }
     }
+
+    *frame += 1;
 
     // Release the mapped buffer
     drop(data);

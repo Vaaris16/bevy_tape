@@ -27,6 +27,13 @@ pub struct RecordScreen {
 
     /// The video codec used for compression and decompression.
     pub codec: Codec,
+
+    /// Delays the start of recording by the specified number of seconds.
+    pub min_secs: i32,
+
+    /// Sets the maximum video duration in seconds
+    /// If [None], the recording will continue indefinitely until stopped.
+    pub max_secs: Option<i32>,
 }
 
 impl Default for RecordScreen {
@@ -37,6 +44,8 @@ impl Default for RecordScreen {
             file_type: FileType::MP4,
             pixel_format: PixelFormat::Yuv420p,
             codec: Codec::H264,
+            min_secs: 0,
+            max_secs: None,
         }
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_tape"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MIT"
 description = "bevy_tape is a plugin built for screen recording in the bevy game engine"
@@ -8,5 +8,5 @@ repository = "https://github.com/Vaaris16/bevy_tape.git"
 readme = "README.md"
 
 [dependencies]
-bevy = {version="0.19.0", features=["bevy_render"]}
+bevy = {version="0.19.0", features=["bevy_render"], default-features = false}
 wgpu = "30.0.0"
